@@ -1,0 +1,10 @@
+{
+  "tasks": {
+    "dev": "deno run --watch main.ts"
+  },
+  "imports": {
+    "hono": "https://deno.land/x/hono@v3.2.6/mod.ts",
+    "hono/middleware": "https://deno.land/x/hono@v3.2.6/middleware.ts",
+    "server": "https://deno.land/std@0.192.0/http/server.ts"
+  }
+}
