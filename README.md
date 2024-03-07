@@ -21,7 +21,7 @@ Before using GoogleOAuth2Kit, ensure you have the following prerequisites instal
 ## Pre-Usage Requirements
 
 - Rename .env.google.example to .env.google
-- Fill your **client_id, client_secret** and **scopes** obtained from Google
+- Fill your **client_id, client_secret** and list of **scopes** obtained from Google
 
 ## Usage
 
