@@ -1,6 +1,7 @@
 import { google } from "npm:googleapis";
 import * as dotenv from "https://deno.land/std@0.218.2/dotenv/mod.ts";
 import { Credentials, OAuth2Client } from "npm:google-auth-library";
+import { existsSync } from "https://deno.land/std/fs/mod.ts";
 const { OAuth2 } = google.auth;
 
 type TJSONEnv = {
@@ -42,8 +43,9 @@ export class GoogleOAuth2Kit {
     this.scopes = scopes;
 
     try {
+      const envExists = existsSync(envPath);
+      if (!envExists) throw new Error("Error: .env file not found.");
       const env = Deno.readTextFileSync(this.envPath);
-      if (!env) throw new Error("Error: .env file not found.");
       const jsonEnvRecord: Record<string, string> = dotenv.parse(env);
       this.envAsJSON = this.parseRecordToJSON(jsonEnvRecord);
       // Check if required keys are present in .env file
