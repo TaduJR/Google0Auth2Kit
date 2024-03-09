@@ -195,5 +195,3 @@ export default class GoogleOAuth2Kit {
     );
   }
 }
-
-const test = new GoogleOAuth2Kit("./.env");
