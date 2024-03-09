@@ -16,7 +16,7 @@ type TJSONEnv = {
   expiry_date: number | undefined | null;
 };
 
-export class GoogleOAuth2Kit {
+export default class GoogleOAuth2Kit {
   private envPath: string;
   private scopes: string[];
   private readonly availableScopes: string[] = [
