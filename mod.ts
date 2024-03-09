@@ -1,7 +1,7 @@
 import { google } from "npm:googleapis";
 import * as dotenv from "https://deno.land/std@0.218.2/dotenv/mod.ts";
 import { Credentials, OAuth2Client } from "npm:google-auth-library";
-import { existsSync } from "https://deno.land/std/fs/mod.ts";
+import { existsSync } from "https://deno.land/std@0.219.1/fs/mod.ts";
 const { OAuth2 } = google.auth;
 
 type TJSONEnv = {
