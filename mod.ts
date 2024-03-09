@@ -1,8 +1,6 @@
-import { google } from "npm:googleapis";
 import * as dotenv from "https://deno.land/std@0.218.2/dotenv/mod.ts";
 import { Credentials, OAuth2Client } from "npm:google-auth-library";
 import { existsSync } from "https://deno.land/std@0.219.1/fs/mod.ts";
-const { OAuth2 } = google.auth;
 
 type TJSONEnv = {
   client_id: string;
@@ -18,7 +16,6 @@ type TJSONEnv = {
 
 export default class GoogleOAuth2Kit {
   private envPath: string;
-  private scopes: string[];
   private readonly availableScopes: string[] = [
     "https://www.googleapis.com/auth/youtube",
     "https://www.googleapis.com/auth/youtube.channel-memberships.creator",
@@ -38,9 +35,8 @@ export default class GoogleOAuth2Kit {
   private envAsJSON: TJSONEnv | undefined;
   private oauth2Client: OAuth2Client | undefined;
 
-  constructor(scopes: string[], envPath: string = "./.env.google") {
+  constructor(envPath: string = "./.env.google") {
     this.envPath = envPath;
-    this.scopes = scopes;
 
     try {
       const envExists = existsSync(envPath);
@@ -51,7 +47,7 @@ export default class GoogleOAuth2Kit {
       // Check if required keys are present in .env file
       this.checkEnv(this.envAsJSON, this.requiredEnvKeys);
       // Check if passed scopes are valid
-      this.checkScopes(this.scopes, this.availableScopes);
+      this.checkScopes(this.envAsJSON.scopes, this.availableScopes);
       // Authorize
       return this.authorize(this.envAsJSON); // Return the OAuth2Client instance
     } catch (error) {
@@ -115,8 +111,7 @@ export default class GoogleOAuth2Kit {
       jsonEnv.scopes
     ) {
       return true;
-    }
-    return false;
+    } else return false;
   }
 
   //Not Pure Function
@@ -126,7 +121,7 @@ export default class GoogleOAuth2Kit {
       const clientSecret = jsonEnv.client_secret;
       const redirectUrl = jsonEnv.redirect_uris[0];
 
-      this.oauth2Client = new OAuth2(clientId, clientSecret, redirectUrl);
+      this.oauth2Client = new OAuth2Client(clientId, clientSecret, redirectUrl);
 
       if (
         !this.checkIfAuthenticatedBefore(jsonEnv) ||
@@ -187,6 +182,7 @@ export default class GoogleOAuth2Kit {
   }
 
   storeToken(token: Credentials, jsonEnv: TJSONEnv) {
+    console.log(token);
     jsonEnv.access_token = token.access_token;
     jsonEnv.refresh_token = token.refresh_token;
     jsonEnv.token_type = token.token_type;
@@ -199,3 +195,5 @@ export default class GoogleOAuth2Kit {
     );
   }
 }
+
+const test = new GoogleOAuth2Kit("./.env");
