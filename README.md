@@ -26,7 +26,7 @@ Before using GoogleOAuth2Kit, ensure you have the following prerequisites instal
 ## Usage
 
 ```js
-import { GoogleOAuth2Kit } from "googleoauth2kit";
+import * as GoogleOAuth2Kit from "https://deno.land/x/googleoauth2kit@v1.0.0/mod.ts";
 
 const scopes = [
   "https://www.googleapis.com/auth/youtube.readonly",
@@ -34,5 +34,5 @@ const scopes = [
 ];
 const envPath = "./.env.google";
 
-const oauth2Client = new Google0Auth2Kit(scopes, envPath);
+const oauth2Client = new GoogleOAuth2Kit(scopes, envPath);
 ```
