@@ -48,7 +48,7 @@ export default class GoogleOAuth2Kit {
       // Check if passed scopes are valid
       this.checkScopes(this.envAsJSON.scopes, this.availableScopes);
       // Authorize
-      // Return the GoogleOAuth2Kit instance with OAuth2Client instance
+      // @ts-ignore <Returning the expected behaviour as long as await is used on the constructor>
       return Promise.resolve(this.authorize(this.envAsJSON)).then(
         (oauth2Client) => {
           this.oauth2Client = oauth2Client;
