@@ -1,7 +1,6 @@
 import * as dotenv from "https://deno.land/std@0.218.2/dotenv/mod.ts";
 import { Credentials, OAuth2Client } from "npm:google-auth-library";
 import { existsSync } from "https://deno.land/std@0.219.1/fs/mod.ts";
-
 type TJSONEnv = {
   client_id: string;
   client_secret: string;
@@ -49,7 +48,13 @@ export default class GoogleOAuth2Kit {
       // Check if passed scopes are valid
       this.checkScopes(this.envAsJSON.scopes, this.availableScopes);
       // Authorize
-      return this.authorize(this.envAsJSON); // Return the OAuth2Client instance
+      // Return the GoogleOAuth2Kit instance with OAuth2Client instance
+      return Promise.resolve(this.authorize(this.envAsJSON)).then(
+        (oauth2Client) => {
+          this.oauth2Client = oauth2Client;
+          return this;
+        }
+      );
     } catch (error) {
       console.error(error);
       if (error.cause) console.error(error.cause);
@@ -115,7 +120,7 @@ export default class GoogleOAuth2Kit {
   }
 
   //Not Pure Function
-  authorize(jsonEnv: TJSONEnv) {
+  async authorize(jsonEnv: TJSONEnv) {
     try {
       const clientId = jsonEnv.client_id;
       const clientSecret = jsonEnv.client_secret;
@@ -127,7 +132,7 @@ export default class GoogleOAuth2Kit {
         !this.checkIfAuthenticatedBefore(jsonEnv) ||
         (jsonEnv.expiry_date && jsonEnv.expiry_date < new Date().getTime())
       ) {
-        this.getNewToken(this.oauth2Client, jsonEnv);
+        await this.getNewToken(this.oauth2Client, jsonEnv);
       } else {
         this.oauth2Client.credentials = jsonEnv;
       }
@@ -137,7 +142,26 @@ export default class GoogleOAuth2Kit {
     }
   }
 
-  getNewToken(oauth2Client: OAuth2Client, jsonEnv: TJSONEnv) {
+  checkCode(oauth2Client: OAuth2Client, reqUrl: string, jsonEnv: TJSONEnv) {
+    try {
+      const code = new URL(reqUrl).searchParams.get("code");
+      if (!code) throw new Error("Error: Code not found in the URL.");
+      oauth2Client.getToken(String(code), (err, token) => {
+        if (err)
+          throw new Error("Error while trying to retrieve access token", err);
+        else if (token) {
+          oauth2Client.setCredentials(token);
+          this.storeToken(token, jsonEnv);
+        } else throw new Error("Error: Access token is undefined.");
+      });
+      return true;
+    } catch (error) {
+      console.error(error);
+      return error;
+    }
+  }
+
+  async getNewToken(oauth2Client: OAuth2Client, jsonEnv: TJSONEnv) {
     try {
       const authUrl = oauth2Client.generateAuthUrl({
         access_type: "offline",
@@ -148,39 +172,28 @@ export default class GoogleOAuth2Kit {
       const hostname = jsonEnv.redirect_uris[0].split("//")[1].split(":")[0];
       const port = Number(jsonEnv.redirect_uris[0].split(":")[2].split("/")[0]);
 
-      const server = Deno.serve({ port, hostname }, (req) => {
-        try {
-          const code = new URL(req.url).searchParams.get("code");
-          if (code) {
-            oauth2Client.getToken(String(code), (err, token) => {
-              if (err)
-                throw new Error(
-                  "Error while trying to retrieve access token",
-                  err
-                );
-
-              if (token) {
-                oauth2Client.setCredentials(token);
-                this.storeToken(token, jsonEnv);
-              } else {
-                throw new Error("Error: Access token is undefined.");
-              }
-            });
-            queueMicrotask(server.shutdown);
+      let server: Deno.HttpServer = {} as Deno.HttpServer;
+      const result = await new Promise((resolve, reject) => {
+        server = Deno.serve({ port, hostname }, (req) => {
+          console.log("Waiting for response...");
+          if (this.checkCode(oauth2Client, req.url, jsonEnv)) {
+            resolve(req);
+            return new Response("Authorization Sucessful");
+          } else {
+            reject(req);
+            return new Response(
+              "Error: Something went wrong while trying to authorize the app."
+            );
           }
-
-          //TODO: Redirect to the URL Again
-          return new Response("Authorization Sucessful");
-        } catch (error) {
-          console.error(error);
-          return error;
-        }
+        });
       });
+      server.shutdown();
+
+      if (result) console.log(result);
     } catch (error) {
       return error;
     }
   }
-
   storeToken(token: Credentials, jsonEnv: TJSONEnv) {
     console.log(token);
     jsonEnv.access_token = token.access_token;
