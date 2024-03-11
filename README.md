@@ -30,6 +30,6 @@ import GoogleOAuth2Kit from "https://deno.land/x/googleoauth2kit@v1.0.4/mod.ts";
 
 const envPath = "./.env.google";
 
-const googleoauth2kit = new GoogleOAuth2Kit(envPath);
+const googleoauth2kit = await new GoogleOAuth2Kit(envPath);
 const oauth2Client = googleoauth2kit.oauth2Client;
 ```
