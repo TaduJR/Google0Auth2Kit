@@ -188,14 +188,12 @@ export default class GoogleOAuth2Kit {
         });
       });
       server.shutdown();
-
-      if (result) console.log(result);
     } catch (error) {
       return error;
     }
   }
+
   storeToken(token: Credentials, jsonEnv: TJSONEnv) {
-    console.log(token);
     jsonEnv.access_token = token.access_token;
     jsonEnv.refresh_token = token.refresh_token;
     jsonEnv.token_type = token.token_type;
