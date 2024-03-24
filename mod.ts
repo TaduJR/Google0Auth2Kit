@@ -173,7 +173,7 @@ export default class GoogleOAuth2Kit {
       const port = Number(jsonEnv.redirect_uris[0].split(":")[2].split("/")[0]);
 
       let server: Deno.HttpServer = {} as Deno.HttpServer;
-      const result = await new Promise((resolve, reject) => {
+      await new Promise((resolve, reject) => {
         server = Deno.serve({ port, hostname }, (req) => {
           console.log("Waiting for response...");
           if (this.checkCode(oauth2Client, req.url, jsonEnv)) {
