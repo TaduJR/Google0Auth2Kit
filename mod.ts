@@ -32,7 +32,7 @@ export default class GoogleOAuth2Kit {
   ];
 
   private envAsJSON: TJSONEnv | undefined;
-  private oauth2Client: OAuth2Client | undefined;
+  oauth2Client: OAuth2Client | undefined;
 
   constructor(envPath: string = "./.env.google") {
     this.envPath = envPath;
