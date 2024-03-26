@@ -26,7 +26,7 @@ Before using GoogleOAuth2Kit, ensure you have the following prerequisites instal
 ## Usage
 
 ```js
-import GoogleOAuth2Kit from "https://deno.land/x/googleoauth2kit@v1.0.6/mod.ts";
+import GoogleOAuth2Kit from "https://deno.land/x/googleoauth2kit@v1.0.7/mod.ts";
 
 const envPath = "./.env.google";
 
