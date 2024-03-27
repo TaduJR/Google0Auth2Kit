@@ -69,7 +69,7 @@ export default class GoogleOAuth2Kit {
       redirect_uris: jsonEnvRecord.redirect_uris.split(","),
       access_token: jsonEnvRecord?.access_token,
       refresh_token: jsonEnvRecord?.refresh_token,
-      scopes: jsonEnvRecord.scopes.split(","),
+      scopes: jsonEnvRecord?.scopes?.split(","),
       token_type: jsonEnvRecord?.token_type,
       expiry_date: Number(jsonEnvRecord?.expiry_date),
     };
@@ -83,7 +83,7 @@ export default class GoogleOAuth2Kit {
       redirect_uris: jsonEnv.redirect_uris.join(","),
       access_token: jsonEnv?.access_token as string,
       refresh_token: jsonEnv?.refresh_token as string,
-      scopes: jsonEnv.scopes.join(","),
+      scopes: jsonEnv?.scopes?.join(","),
       token_type: jsonEnv?.token_type as string,
       expiry_date: String(jsonEnv?.expiry_date),
     };
@@ -102,7 +102,7 @@ export default class GoogleOAuth2Kit {
   checkScopes(scopes: string[], availableScopes: string[]) {
     for (const scope of scopes) {
       if (!availableScopes.includes(scope))
-        throw new Error(`Error: ${scope} is not a valid scope.`);
+        throw new Error(`Error: ${scope} is not a valid key.`);
     }
     return true;
   }
@@ -142,31 +142,32 @@ export default class GoogleOAuth2Kit {
     }
   }
 
-  checkCode(oauth2Client: OAuth2Client, reqUrl: string, jsonEnv: TJSONEnv) {
+  async checkCode(oauth2Client: OAuth2Client, code: string) {
     try {
-      const code = new URL(reqUrl).searchParams.get("code");
-      if (!code) throw new Error("Error: Code not found in the URL.");
-      oauth2Client.getToken(String(code), (err, token) => {
-        if (err)
-          throw new Error("Error while trying to retrieve access token", err);
-        else if (token) {
-          oauth2Client.setCredentials(token);
-          this.storeToken(token, jsonEnv);
-        } else throw new Error("Error: Access token is undefined.");
-      });
-      return true;
+      const { tokens } = await oauth2Client.getToken(code);
+      if (!tokens)
+        throw new Error("Error while trying to retrieve access token");
+      oauth2Client.credentials = tokens;
+      return tokens;
     } catch (error) {
-      console.error(error);
       return error;
     }
   }
 
   async getNewToken(oauth2Client: OAuth2Client, jsonEnv: TJSONEnv) {
     try {
-      const authUrl = oauth2Client.generateAuthUrl({
-        access_type: "offline",
-        scope: jsonEnv.scopes,
-      });
+      let authUrl;
+      if (jsonEnv.refresh_token)
+        authUrl = oauth2Client.generateAuthUrl({
+          access_type: "offline",
+          scope: jsonEnv.scopes,
+        });
+      else
+        authUrl = oauth2Client.generateAuthUrl({
+          access_type: "offline",
+          scope: jsonEnv.scopes,
+          prompt: "consent",
+        });
 
       console.log("Authorize this app by visiting this url: ", authUrl);
       const hostname = jsonEnv.redirect_uris[0].split("//")[1].split(":")[0];
@@ -174,17 +175,24 @@ export default class GoogleOAuth2Kit {
 
       let server: Deno.HttpServer = {} as Deno.HttpServer;
       await new Promise((resolve, reject) => {
-        server = Deno.serve({ port, hostname }, (req) => {
-          console.log("Waiting for response...");
-          if (this.checkCode(oauth2Client, req.url, jsonEnv)) {
-            resolve(req);
-            return new Response("Authorization Sucessful");
-          } else {
-            reject(req);
-            return new Response(
-              "Error: Something went wrong while trying to authorize the app."
-            );
+        server = Deno.serve({ port, hostname }, async (req) => {
+          const code = new URL(req.url).searchParams.get("code");
+          if (code && code.length > 1) {
+            console.log("Waiting for response...");
+            const token = await this.checkCode(oauth2Client, code);
+
+            if (token) {
+              this.storeToken(token, jsonEnv);
+              resolve(req);
+              return new Response("Authorization Sucessful");
+            } else {
+              reject(req);
+              return new Response(
+                "Error: Something went wrong while trying to authorize the app."
+              );
+            }
           }
+          return new Response("Blank Server");
         });
       });
       server.shutdown();
