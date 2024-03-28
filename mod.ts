@@ -32,6 +32,7 @@ export default class GoogleOAuth2Kit {
   ];
 
   private envAsJSON: TJSONEnv | undefined;
+  private previousCodes: Array<string> | undefined;
   oauth2Client: OAuth2Client | undefined;
 
   constructor(envPath: string = "./.env.google") {
@@ -58,7 +59,7 @@ export default class GoogleOAuth2Kit {
     } catch (error) {
       console.error(error);
       if (error.cause) console.error(error.cause);
-      return error;
+      throw error;
     }
   }
 
@@ -136,9 +137,19 @@ export default class GoogleOAuth2Kit {
       } else {
         this.oauth2Client.credentials = jsonEnv;
       }
+      this.oauth2Client.on("tokens", (tokens) => {
+        if (tokens.refresh_token) {
+          // store the refresh_token in .env
+          jsonEnv.refresh_token = tokens.refresh_token;
+          Deno.writeTextFileSync(
+            this.envPath,
+            dotenv.stringify(this.parseJSONToRecord(jsonEnv))
+          );
+        }
+      });
       return this.oauth2Client;
     } catch (error) {
-      return error;
+      throw error;
     }
   }
 
@@ -147,16 +158,15 @@ export default class GoogleOAuth2Kit {
       const { tokens } = await oauth2Client.getToken(code);
       if (!tokens)
         throw new Error("Error while trying to retrieve access token");
-      oauth2Client.credentials = tokens;
       return tokens;
     } catch (error) {
-      return error;
+      throw error;
     }
   }
 
   async getNewToken(oauth2Client: OAuth2Client, jsonEnv: TJSONEnv) {
     try {
-      let authUrl;
+      let authUrl: string;
       if (jsonEnv.refresh_token)
         authUrl = oauth2Client.generateAuthUrl({
           access_type: "offline",
@@ -169,35 +179,35 @@ export default class GoogleOAuth2Kit {
           prompt: "consent",
         });
 
-      console.log("Authorize this app by visiting this url: ", authUrl);
       const hostname = jsonEnv.redirect_uris[0].split("//")[1].split(":")[0];
       const port = Number(jsonEnv.redirect_uris[0].split(":")[2].split("/")[0]);
+      console.log("Authorize this app by visiting this url: ", authUrl);
 
       let server: Deno.HttpServer = {} as Deno.HttpServer;
       await new Promise((resolve, reject) => {
         server = Deno.serve({ port, hostname }, async (req) => {
           const code = new URL(req.url).searchParams.get("code");
-          if (code && code.length > 1) {
+          if (code) this.previousCodes?.push(code);
+          if (code && code.length > 1 && !this.previousCodes?.includes(code)) {
             console.log("Waiting for response...");
             const token = await this.checkCode(oauth2Client, code);
+            oauth2Client.credentials = token;
 
             if (token) {
               this.storeToken(token, jsonEnv);
-              resolve(req);
+              resolve(oauth2Client);
               return new Response("Authorization Sucessful");
             } else {
-              reject(req);
-              return new Response(
-                "Error: Something went wrong while trying to authorize the app."
-              );
+              reject(oauth2Client);
+              return new Response("Authorization Failed");
             }
           }
+          server.shutdown();
           return new Response("Blank Server");
         });
       });
-      server.shutdown();
     } catch (error) {
-      return error;
+      throw error;
     }
   }
 
