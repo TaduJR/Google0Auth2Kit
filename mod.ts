@@ -50,12 +50,14 @@ export default class GoogleOAuth2Kit {
       this.checkScopes(this.envAsJSON.scopes, this.availableScopes);
       // Authorize
       // @ts-ignore <Returning the expected behaviour as long as await is used on the constructor>
-      return Promise.resolve(this.authorize(this.envAsJSON)).then(
-        (oauth2Client) => {
+      return Promise.resolve(this.authorize(this.envAsJSON))
+        .then((oauth2Client) => {
           this.oauth2Client = oauth2Client;
           return this;
-        }
-      );
+        })
+        .catch(() => {
+          throw Error("Authorization failed");
+        });
     } catch (error) {
       console.error(error);
       if (error.cause) console.error(error.cause);
@@ -108,16 +110,15 @@ export default class GoogleOAuth2Kit {
     return true;
   }
 
-  checkIfAuthenticatedBefore(jsonEnv: TJSONEnv) {
+  notAuthenticatedBefore(jsonEnv: TJSONEnv) {
     if (
       jsonEnv.access_token &&
       jsonEnv.refresh_token &&
       jsonEnv.expiry_date &&
-      jsonEnv.token_type &&
-      jsonEnv.scopes
+      jsonEnv.token_type
     ) {
-      return true;
-    } else return false;
+      return false;
+    } else return true;
   }
 
   //Not Pure Function
@@ -129,14 +130,12 @@ export default class GoogleOAuth2Kit {
 
       this.oauth2Client = new OAuth2Client(clientId, clientSecret, redirectUrl);
 
-      if (
-        !this.checkIfAuthenticatedBefore(jsonEnv) ||
-        (jsonEnv.expiry_date && jsonEnv.expiry_date < new Date().getTime())
-      ) {
+      const is_valid_expiry_date =
+        jsonEnv.expiry_date ?? 0 < new Date().getTime();
+      if (this.notAuthenticatedBefore(jsonEnv) || !is_valid_expiry_date) {
         await this.getNewToken(this.oauth2Client, jsonEnv);
-      } else {
-        this.oauth2Client.credentials = jsonEnv;
-      }
+      } else this.oauth2Client.credentials = jsonEnv;
+
       this.oauth2Client.on("tokens", (tokens) => {
         if (tokens.refresh_token) {
           // store the refresh_token in .env
@@ -196,14 +195,17 @@ export default class GoogleOAuth2Kit {
             if (token) {
               this.storeToken(token, jsonEnv);
               resolve(oauth2Client);
+              server.shutdown();
               return new Response("Authorization Sucessful");
             } else {
               reject(oauth2Client);
+              server.shutdown();
               return new Response("Authorization Failed");
             }
           }
+          reject(oauth2Client);
           server.shutdown();
-          return new Response("Blank Server");
+          return new Response("Authorization Failed");
         });
       });
     } catch (error) {
